@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Commando</title>
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: black
+        }
+
+        canvas {
+            display: block;
+            margin: auto;
+            background: #000
+        }
+
+        #game {
+            width: 85%;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <script>
+        // Single switch for SDK provider: "none" | "crazygames" | "gamemonetize" | "gamedistribution"
+        window.PLATFORM_SDK = localStorage.getItem("pixelActiveSdk") || "none";
+
+        // Replace with real IDs from each platform dashboard
+        window.GM_GAME_ID = "ydtce6n2lgilszfuk7bl1cvs2png5tsw";
+        window.GD_GAME_ID = "1adfcc07ce194d55a23b97fab6e4d90e";
+
+        // SDK bootstrap by selected platform
+        if (window.PLATFORM_SDK === "gamemonetize") {
+            window.SDK_OPTIONS = {
+                gameId: window.GM_GAME_ID,
+                onEvent: function (event) {
+                    if (window.__PIXEL_SDK_EVENT) window.__PIXEL_SDK_EVENT(event);
+                }
+            };
+            (function (a, b, c) {
+                var d = a.getElementsByTagName(b)[0];
+                if (!a.getElementById(c)) {
+                    a = a.createElement(b);
+                    a.id = c;
+                    a.src = "https://api.gamemonetize.com/sdk.js";
+                    d.parentNode.insertBefore(a, d);
+                }
+            })(document, "script", "gamemonetize-sdk");
+        }
+
+        if (window.PLATFORM_SDK === "gamedistribution") {
+            window.GD_OPTIONS = {
+                gameId: window.GD_GAME_ID,
+                advertisementSettings: { autoplay: false },
+                onEvent: function (event) {
+                    if (window.__PIXEL_SDK_EVENT) window.__PIXEL_SDK_EVENT(event);
+                }
+            };
+            (function (d) {
+                if (d.getElementById("gamedistribution-jssdk")) return;
+                var s = d.createElement("script");
+                s.id = "gamedistribution-jssdk";
+                s.src = "https://html5.api.gamedistribution.com/main.min.js";
+                s.async = true;
+                d.head.appendChild(s);
+            })(document);
+        }
+    </script>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
