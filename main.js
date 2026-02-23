@@ -1669,52 +1669,22 @@ function checkMobileButtons(x, y) {
     if (!isMobile()) return;
 
     // LEFT
-    if (mobileLeftBtn && inRect(x, y,
-        mobileLeftBtn.x,
-        mobileLeftBtn.y,
-        mobileLeftBtn.w,
-        mobileLeftBtn.h)) {
-
+    if (mobileLeftBtn && inRect(x, y, mobileLeftBtn.x, mobileLeftBtn.y, mobileLeftBtn.w, mobileLeftBtn.h)) {
         touchLeft = true;
+        touchRight = false;
     }
-
-    // RIGHT
-    if (mobileRightBtn && inRect(x, y,
-        mobileRightBtn.x,
-        mobileRightBtn.y,
-        mobileRightBtn.w,
-        mobileRightBtn.h)) {
-
+    if (mobileRightBtn && inRect(x, y, mobileRightBtn.x, mobileRightBtn.y, mobileRightBtn.w, mobileRightBtn.h)) {
         touchRight = true;
+        touchLeft = false;
     }
-
-    // JUMP
-    if (mobileJumpBtn && inRect(x, y,
-        mobileJumpBtn.x,
-        mobileJumpBtn.y,
-        mobileJumpBtn.w,
-        mobileJumpBtn.h)) {
-
+    if (mobileJumpBtn && inRect(x, y, mobileJumpBtn.x, mobileJumpBtn.y, mobileJumpBtn.w, mobileJumpBtn.h)) {
         touchJump = true;
     }
-
-    // SHOOT
-    if (mobileShootBtn && inRect(x, y,
-        mobileShootBtn.x,
-        mobileShootBtn.y,
-        mobileShootBtn.w,
-        mobileShootBtn.h)) {
-
+    if (mobileShootBtn && inRect(x, y, mobileShootBtn.x, mobileShootBtn.y, mobileShootBtn.w, mobileShootBtn.h)) {
         touchShoot = true;
     }
 }
 
-canvas.addEventListener("touchend", function () {
-    touchLeft = false;
-    touchRight = false;
-    touchJump = false;
-    touchShoot = false;
-});
 
 function drawPausePopup() {
     drawPopupFrame("PAUSED", "Game is paused");
@@ -1772,12 +1742,43 @@ function drawMobileBtn(btn, text) {
 }
 
 // ===== TOUCH = CLICK FIX (MENU / SHOP / LEVELS) =====
+// Replace your existing touchstart/touchend listeners with these
 canvas.addEventListener("touchstart", function (e) {
+    e.preventDefault(); // Prevents "ghost clicks" and scrolling
+    ensureAudio();
 
-    if (!isMobile()) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-    handleCanvasClick(e);
+    for (let i = 0; i < e.touches.length; i++) {
+        const t = e.touches[i];
+        const x = (t.clientX - rect.left) * scaleX;
+        const y = (t.clientY - rect.top) * scaleY;
 
+        // Use the same detection logic but handle it per-finger
+        checkMobileButtons(x, y);
+
+        // Also handle menu/UI clicks via touch
+        if (gameState !== "play") {
+            handleCanvasClick(t);
+        }
+    }
+}, { passive: false });
+
+canvas.addEventListener("touchend", function (e) {
+    // If no fingers are touching, reset all inputs
+    if (e.touches.length === 0) {
+        touchLeft = false;
+        touchRight = false;
+        touchJump = false;
+        touchShoot = false;
+    } else {
+        touchLeft = false;
+        touchRight = false;
+        touchJump = false;
+        touchShoot = false;
+    }
 }, { passive: false });
 
 function loop() {
