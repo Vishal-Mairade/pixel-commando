@@ -39,6 +39,17 @@ let keys = {};
 let enemies = [];
 let boss = null;
 let bossSpawned = false;
+
+
+let mobileLeftBtn = null;
+let mobileJumpBtn = null;
+let mobileShootBtn = null;
+let mobileRightBtn = null;
+let touchLeft = false;
+let touchJump = false;
+let touchShoot = false;
+let touchRight = false;
+
 const LEVEL_WIDTH = 3000; // Total length of the level
 const GROUND_Y = 400;
 const TOTAL_STAGES = 8;
@@ -165,7 +176,7 @@ async function setupSdk() {
     if (activeSdk === "crazygames") {
         try {
             await waitForCondition(() => window.CrazyGames && window.CrazyGames.SDK);
-            if (window.CrazyGames.SDK.init) await window.CrazyGames.SDK.init();
+            // if (window.CrazyGames.SDK.init) await window.CrazyGames.SDK.init();
             sdkReady = true;
         } catch (err) {
             console.warn("CrazyGames init failed", err);
@@ -348,10 +359,10 @@ function cycleSdkMode() {
 /* ================= CHARACTERS (Original Colors/Prices) ================= */
 const characters = [
     { name: "Soldier", color: "cyan", price: 0 },
-    { name: "Red Force", color: "red", price: 200 },
-    { name: "Green Hero", color: "lime", price: 300 },
-    { name: "Shadow Ops", color: "orange", price: 500 },
-    { name: "Cyber X", color: "magenta", price: 700 }
+    { name: "Red Force", color: "red", price: 600 },
+    { name: "Green Hero", color: "lime", price: 1200 },
+    { name: "Shadow Ops", color: "orange", price: 2400 },
+    { name: "Cyber X", color: "magenta", price: 4800 }
 ];
 
 /* ================= PLAYER ================= */
@@ -379,6 +390,30 @@ addEventListener("keydown", e => {
         cycleSdkMode();
         return;
     }
+
+    if (gameState === "play" && e.key === "f") {
+        shoot();
+    }
+
+    if (e.key === "Escape") {
+
+        if (gameState === "play") {
+            pauseGame();
+            return;
+        }
+
+        if (gameState === "pause") {
+            resumeGame();
+            return;
+        }
+
+        if (gameState === "shop" || gameState === "levels") {
+            goHome();
+            return;
+        }
+    }
+
+
     if (gameState === "home") {
         if (e.key === "ArrowDown") menuIndex = (menuIndex + 1) % 3;
         if (e.key === "ArrowUp") menuIndex = (menuIndex + 2) % 3;
@@ -398,13 +433,42 @@ addEventListener("keydown", e => {
         }
         if (e.key === "Enter") startLevel(selectedLevel);
     }
-    if (e.key === "Escape") gameState = "home";
-    if (gameState === "play" && e.key === "f") {
-        shoot();
-    }
+
 });
 
 addEventListener("keyup", e => keys[e.key] = false);
+
+
+function pauseGame() {
+    if (gameState !== "play") return;
+
+    gameState = "pause";
+    if (window.PLATFORM_SDK === "crazygames" && window.CrazyGames?.SDK?.game) {
+        window.CrazyGames.SDK.game.gameplayStop();
+    }
+}
+
+function resumeGame() {
+    if (gameState !== "pause") return;
+
+    gameState = "play";
+    if (window.PLATFORM_SDK === "crazygames" && window.CrazyGames?.SDK?.game) {
+        window.CrazyGames.SDK.game.gameplayStart();
+    }
+}
+
+function goHome() {
+    gameState = "home";
+}
+
+function backFromShop() {
+    gameState = "home";
+}
+
+function backFromLevels() {
+    gameState = "home";
+}
+
 
 function handleMenu() {
     if (menuIndex === 0) startLevel(save.unlockedLevel);
@@ -445,6 +509,10 @@ function startLevel(id) {
     adClaimedOnWin = false;
     lastCheckpoint = { x: player.x, y: player.y };
     gameState = "play";
+
+    if (window.PLATFORM_SDK === "crazygames" && window.CrazyGames?.SDK?.game) {
+        window.CrazyGames.SDK.game.gameplayStart();
+    }
 }
 
 function resetPlayer() {
@@ -519,6 +587,30 @@ function update() {
         player.dy = -player.jump;
         player.onGround = false;
         playJumpSound();
+    }
+    // ===== MOBILE CONTROLS =====
+    if (isMobile()) {
+
+        if (touchLeft) {
+            player.vx = -player.speed;
+        }
+
+        if (touchRight) {
+            player.dx = player.speed;
+            player.facing = 1;
+        }
+
+        if (touchJump && player.onGround) {
+            player.dy = -player.jump;
+            player.onGround = false;
+            playJumpSound();
+            touchJump = false;
+        }
+
+        if (touchShoot) {
+            shoot();
+            touchShoot = false;
+        }
     }
 
     player.dy += GRAVITY;
@@ -693,6 +785,10 @@ function levelComplete() {
     saveGame();
     adClaimedOnWin = false;
     playWinSound();
+
+    if (window.PLATFORM_SDK === "crazygames" && window.CrazyGames?.SDK?.game) {
+        window.CrazyGames.SDK.game.gameplayStop();
+    }
 }
 
 /* ================= DRAWING ================= */
@@ -703,6 +799,10 @@ function draw() {
     if (gameState === "levels") drawLevelsScreen();
     if (gameState === "shop") drawShop();
     if (gameState === "play" || gameState === "win" || gameState === "gameOver") drawGame();
+    if (gameState === "pause") {
+        drawGame();
+        drawPausePopup();
+    }
     if (gameState === "win") drawWinPopup();
     if (gameState === "gameOver") drawGameOverPopup();
     drawAudioButton();
@@ -826,6 +926,70 @@ function drawGame() {
     // Info
     ctx.fillStyle = "white";
     ctx.fillText("Stage " + getStageFromLevel(currentLevel) + " - Level " + getLevelInStage(currentLevel) + " | Coins: " + save.coins, 20, 25);
+
+    // ===== PAUSE BUTTON (TOP CENTER) =====
+    const pauseBtn = {
+        x: canvas.width / 2 - 20,
+        y: 18,
+        w: 40,
+        h: 32
+    };
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(pauseBtn.x, pauseBtn.y, pauseBtn.w, pauseBtn.h);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("⏸", pauseBtn.x + 20, pauseBtn.y + 23);
+
+    window.pauseBtn = pauseBtn;
+
+    // ===== MOBILE CONTROLS =====
+    if (isMobile()) {
+
+        const btnSize = 60;
+        const margin = 20;
+        const y = canvas.height - btnSize - margin;
+
+        // Left Button
+        mobileLeftBtn = {
+            x: margin,
+            y: y,
+            w: btnSize,
+            h: btnSize
+        };
+
+        // Right Button
+        mobileRightBtn = {
+            x: margin + btnSize + 15,
+            y: y,
+            w: btnSize,
+            h: btnSize
+        };
+
+        // Jump Button
+        mobileJumpBtn = {
+            x: canvas.width - btnSize * 2 - margin * 2,
+            y: y,
+            w: btnSize,
+            h: btnSize
+        };
+
+        // Shoot Button
+        mobileShootBtn = {
+            x: canvas.width - btnSize - margin,
+            y: y,
+            w: btnSize,
+            h: btnSize
+        };
+
+        drawMobileBtn(mobileLeftBtn, "◀");
+        drawMobileBtn(mobileRightBtn, "▶");
+        drawMobileBtn(mobileJumpBtn, "⬆");
+        drawMobileBtn(mobileShootBtn, "🔥");
+    }
+
     if (bossSpawned) {
         ctx.fillText("Boss Fight", 120, 80);
         if (boss) {
@@ -1298,6 +1462,10 @@ function damagePlayer(amount) {
 
     if (player.health <= 0) {
         gameState = "gameOver";
+
+        if (window.PLATFORM_SDK === "crazygames" && window.CrazyGames?.SDK?.game) {
+            window.CrazyGames.SDK.game.gameplayStop();
+        }
     }
 }
 
@@ -1367,6 +1535,40 @@ canvas.addEventListener("click", e => {
         return;
     }
 
+    if (
+        gameState === "play" &&
+        window.pauseBtn &&
+        clickX >= pauseBtn.x &&
+        clickX <= pauseBtn.x + pauseBtn.w &&
+        clickY >= pauseBtn.y &&
+        clickY <= pauseBtn.y + pauseBtn.h
+    ) {
+        pauseGame();
+        return;
+    }
+
+    // ===== PAUSE MENU BUTTONS =====
+    if (gameState === "pause") {
+
+        // Resume
+        if (inRect(clickX, clickY, 265, 280, 130, 44)) {
+            resumeGame();
+            return;
+        }
+
+        // Restart
+        if (inRect(clickX, clickY, 415, 280, 130, 44)) {
+            startLevel(currentLevel);
+            return;
+        }
+
+        // Home
+        if (inRect(clickX, clickY, 565, 280, 130, 44)) {
+            goHome();
+            return;
+        }
+    }
+
     if (gameState === "gameOver") {
         handleGameOverClick(clickX, clickY);
         return;
@@ -1416,7 +1618,7 @@ canvas.addEventListener("click", e => {
             if (save.unlockedChars[i]) {
                 save.selectedChar = i;
             } else if (save.coins >= c.price) {
-                save.coins -= c.price; // Deducts your original coin system balance
+                save.coins -= c.price;
                 save.unlockedChars[i] = true;
                 save.selectedChar = i;
             }
@@ -1425,10 +1627,132 @@ canvas.addEventListener("click", e => {
     });
 });
 
+// ===== MOBILE TOUCH START =====
+canvas.addEventListener("touchstart", function (e) {
+
+    if (!isMobile()) return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    for (let t of e.touches) {
+
+        const x = t.clientX - rect.left;
+        const y = t.clientY - rect.top;
+
+        // LEFT
+        if (mobileLeftBtn && inRect(x, y,
+            mobileLeftBtn.x,
+            mobileLeftBtn.y,
+            mobileLeftBtn.w,
+            mobileLeftBtn.h)) {
+
+            touchLeft = true;
+        }
+
+        // RIGHT
+        if (mobileRightBtn && inRect(x, y,
+            mobileRightBtn.x,
+            mobileRightBtn.y,
+            mobileRightBtn.w,
+            mobileRightBtn.h)) {
+
+            touchRight = true;
+        }
+
+        // JUMP
+        if (mobileJumpBtn && inRect(x, y,
+            mobileJumpBtn.x,
+            mobileJumpBtn.y,
+            mobileJumpBtn.w,
+            mobileJumpBtn.h)) {
+
+            touchJump = true;
+        }
+
+        // SHOOT
+        if (mobileShootBtn && inRect(x, y,
+            mobileShootBtn.x,
+            mobileShootBtn.y,
+            mobileShootBtn.w,
+            mobileShootBtn.h)) {
+
+            touchShoot = true;
+        }
+    }
+
+    e.preventDefault();
+
+}, { passive: false });
+
+
+canvas.addEventListener("touchend", function () {
+    touchLeft = false;
+    touchRight = false;
+    touchJump = false;
+    touchShoot = false;
+});
+
+function drawPausePopup() {
+    drawPopupFrame("PAUSED", "Game is paused");
+
+    drawPopupButton(265, 280, 130, 44, "RESUME", "#1f4f1f");
+    drawPopupButton(415, 280, 130, 44, "RESTART", "#6a1f1f");
+    drawPopupButton(565, 280, 130, 44, "HOME", "#1f2f6a");
+}
+
+function showMidgameAd() {
+    if (activeSdk === "crazygames" && window.CrazyGames?.SDK?.ad) {
+        const callbacks = {
+            adStarted: () => {
+                setSdkAdActive(true);
+            },
+            adFinished: () => {
+                setSdkAdActive(false);
+                pendingRewardResolve && pendingRewardResolve();
+            },
+            adError: () => {
+                setSdkAdActive(false);
+                pendingRewardReject && pendingRewardReject();
+            }
+        };
+        window.CrazyGames.SDK.ad.requestAd("rewarded", callbacks);
+        return;
+    }
+}
+
+
+
+function isMobile() {
+    return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+}
+
+function drawMobileBtn(btn, text) {
+
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "26px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText(
+        text,
+        btn.x + btn.w / 2,
+        btn.y + btn.h / 2
+    );
+}
+
 function loop() {
     update();
     draw();
     requestAnimationFrame(loop);
+
 }
+
 setupSdk();
 loop();
