@@ -1525,11 +1525,11 @@ function getCanvasPointer(event) {
 /* ================= CLICK LOGIC ================= */
 canvas.addEventListener("click", e => {
     ensureAudio();
+    handleCanvasClick(e);
     const pointer = getCanvasPointer(e);
     const clickX = pointer.x;
     const clickY = pointer.y;
 
-    handleCanvasClick(e);
 
     if (isInAudioButton(clickX, clickY)) {
         isMuted = !isMuted;
@@ -1631,20 +1631,18 @@ canvas.addEventListener("click", e => {
 });
 
 // ===== MOBILE TOUCH START =====
-function handleCanvasClick(eOrX, maybeY) {
+function handleCanvasClick(event) {
 
-    // ===== TOUCH EVENT =====
-    if (typeof eOrX === "object") {
+    if (!event) return;
 
-        const e = eOrX;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-        if (!isMobile()) return;
+    // TOUCH
+    if (event.touches && event.touches.length > 0) {
 
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        for (let t of e.touches) {
+        for (let t of event.touches) {
 
             const x = (t.clientX - rect.left) * scaleX;
             const y = (t.clientY - rect.top) * scaleY;
@@ -1652,15 +1650,18 @@ function handleCanvasClick(eOrX, maybeY) {
             checkMobileButtons(x, y);
         }
 
-        e.preventDefault();
+        event.preventDefault();
         return;
     }
 
-    // ===== NORMAL CLICK =====
-    const x = eOrX;
-    const y = maybeY;
+    // MOUSE CLICK
+    if (event.clientX !== undefined) {
 
-    checkMobileButtons(x, y);
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+
+        checkMobileButtons(x, y);
+    }
 }
 
 function checkMobileButtons(x, y) {
