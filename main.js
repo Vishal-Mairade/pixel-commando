@@ -1529,6 +1529,8 @@ canvas.addEventListener("click", e => {
     const clickX = pointer.x;
     const clickY = pointer.y;
 
+    handleCanvasClick(clickX, clickY);
+
     if (isInAudioButton(clickX, clickY)) {
         isMuted = !isMuted;
         applyAudioState();
@@ -1629,7 +1631,7 @@ canvas.addEventListener("click", e => {
 });
 
 // ===== MOBILE TOUCH START =====
-canvas.addEventListener("touchstart", function (e) {
+function handleCanvasClick(clickX, clickY) {
 
     if (!isMobile()) return;
 
@@ -1686,8 +1688,7 @@ canvas.addEventListener("touchstart", function (e) {
 
     e.preventDefault();
 
-}, { passive: false });
-
+}
 
 canvas.addEventListener("touchend", function () {
     touchLeft = false;
@@ -1750,6 +1751,27 @@ function drawMobileBtn(btn, text) {
         btn.y + btn.h / 2
     );
 }
+
+// ===== TOUCH = CLICK FIX (MENU / SHOP / LEVELS) =====
+canvas.addEventListener("touchstart", function (e) {
+
+    if (!isMobile()) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const t = e.touches[0];
+
+    const x = (t.clientX - rect.left) * scaleX;
+    const y = (t.clientY - rect.top) * scaleY;
+
+    // Fake click call
+    handleCanvasClick(x, y);
+
+    e.preventDefault();
+
+}, { passive: false });
 
 function loop() {
     update();
