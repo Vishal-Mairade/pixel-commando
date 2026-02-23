@@ -1529,7 +1529,7 @@ canvas.addEventListener("click", e => {
     const clickX = pointer.x;
     const clickY = pointer.y;
 
-    handleCanvasClick(clickX, clickY);
+    handleCanvasClick(e);
 
     if (isInAudioButton(clickX, clickY)) {
         isMuted = !isMuted;
@@ -1631,63 +1631,81 @@ canvas.addEventListener("click", e => {
 });
 
 // ===== MOBILE TOUCH START =====
-function handleCanvasClick(clickX, clickY) {
+function handleCanvasClick(eOrX, maybeY) {
+
+    // ===== TOUCH EVENT =====
+    if (typeof eOrX === "object") {
+
+        const e = eOrX;
+
+        if (!isMobile()) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        for (let t of e.touches) {
+
+            const x = (t.clientX - rect.left) * scaleX;
+            const y = (t.clientY - rect.top) * scaleY;
+
+            checkMobileButtons(x, y);
+        }
+
+        e.preventDefault();
+        return;
+    }
+
+    // ===== NORMAL CLICK =====
+    const x = eOrX;
+    const y = maybeY;
+
+    checkMobileButtons(x, y);
+}
+
+function checkMobileButtons(x, y) {
 
     if (!isMobile()) return;
 
-    const rect = canvas.getBoundingClientRect();
+    // LEFT
+    if (mobileLeftBtn && inRect(x, y,
+        mobileLeftBtn.x,
+        mobileLeftBtn.y,
+        mobileLeftBtn.w,
+        mobileLeftBtn.h)) {
 
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    for (let t of e.touches) {
-
-        const x = (t.clientX - rect.left) * scaleX;
-        const y = (t.clientY - rect.top) * scaleY;
-
-        // LEFT
-        if (mobileLeftBtn && inRect(x, y,
-            mobileLeftBtn.x,
-            mobileLeftBtn.y,
-            mobileLeftBtn.w,
-            mobileLeftBtn.h)) {
-
-            touchLeft = true;
-        }
-
-        // RIGHT
-        if (mobileRightBtn && inRect(x, y,
-            mobileRightBtn.x,
-            mobileRightBtn.y,
-            mobileRightBtn.w,
-            mobileRightBtn.h)) {
-
-            touchRight = true;
-        }
-
-        // JUMP
-        if (mobileJumpBtn && inRect(x, y,
-            mobileJumpBtn.x,
-            mobileJumpBtn.y,
-            mobileJumpBtn.w,
-            mobileJumpBtn.h)) {
-
-            touchJump = true;
-        }
-
-        // SHOOT
-        if (mobileShootBtn && inRect(x, y,
-            mobileShootBtn.x,
-            mobileShootBtn.y,
-            mobileShootBtn.w,
-            mobileShootBtn.h)) {
-
-            touchShoot = true;
-        }
+        touchLeft = true;
     }
 
-    e.preventDefault();
+    // RIGHT
+    if (mobileRightBtn && inRect(x, y,
+        mobileRightBtn.x,
+        mobileRightBtn.y,
+        mobileRightBtn.w,
+        mobileRightBtn.h)) {
 
+        touchRight = true;
+    }
+
+    // JUMP
+    if (mobileJumpBtn && inRect(x, y,
+        mobileJumpBtn.x,
+        mobileJumpBtn.y,
+        mobileJumpBtn.w,
+        mobileJumpBtn.h)) {
+
+        touchJump = true;
+    }
+
+    // SHOOT
+    if (mobileShootBtn && inRect(x, y,
+        mobileShootBtn.x,
+        mobileShootBtn.y,
+        mobileShootBtn.w,
+        mobileShootBtn.h)) {
+
+        touchShoot = true;
+    }
 }
 
 canvas.addEventListener("touchend", function () {
@@ -1757,19 +1775,7 @@ canvas.addEventListener("touchstart", function (e) {
 
     if (!isMobile()) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    const t = e.touches[0];
-
-    const x = (t.clientX - rect.left) * scaleX;
-    const y = (t.clientY - rect.top) * scaleY;
-
-    // Fake click call
-    handleCanvasClick(x, y);
-
-    e.preventDefault();
+    handleCanvasClick(e);
 
 }, { passive: false });
 
