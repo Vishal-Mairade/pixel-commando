@@ -18,7 +18,11 @@
         }
 
         #game {
-            width: 85%;
+            width: 100%;
+            height: auto;
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -27,24 +31,18 @@
     <canvas id="game"></canvas>
     <script>
         // Single switch for SDK provider: "none" | "crazygames" | "gamemonetize" | "gamedistribution"
-        window.PLATFORM_SDK = localStorage.getItem("pixelActiveSdk") || "none";
+        window.PLATFORM_SDK = localStorage.getItem("pixelActiveSdk") || "crazygames";
 
         // Replace with real IDs from each platform dashboard
         window.GM_GAME_ID = "ydtce6n2lgilszfuk7bl1cvs2png5tsw";
         window.GD_GAME_ID = "1adfcc07ce194d55a23b97fab6e4d90e";
 
         if (window.PLATFORM_SDK === "crazygames") {
-            try {
-                await window.CrazyGames.SDK.init();
+            window.CrazyGames.SDK.init().then(() => {
                 console.log("CrazyGames SDK initialized");
                 window.CrazyGames.SDK.game.loadingStart();
-
-                setTimeout(() => {
-                    window.CrazyGames.SDK.game.loadingStop();
-                }, 1000);
-            } catch (e) {
-                console.error("CrazyGames init failed", e);
-            }
+                setTimeout(() => { window.CrazyGames.SDK.game.loadingStop(); }, 1000);
+            }).catch(e => console.error("Init failed", e));
         }
 
         if (window.PLATFORM_SDK === "gamemonetize") {
