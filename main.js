@@ -592,7 +592,8 @@ function update() {
     if (isMobile()) {
 
         if (touchLeft) {
-            player.vx = -player.speed;
+            player.dx = -player.speed;
+            player.facing = -1;
         }
 
         if (touchRight) {
@@ -1634,10 +1635,13 @@ canvas.addEventListener("touchstart", function (e) {
 
     const rect = canvas.getBoundingClientRect();
 
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     for (let t of e.touches) {
 
-        const x = t.clientX - rect.left;
-        const y = t.clientY - rect.top;
+        const x = (t.clientX - rect.left) * scaleX;
+        const y = (t.clientY - rect.top) * scaleY;
 
         // LEFT
         if (mobileLeftBtn && inRect(x, y,
