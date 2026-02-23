@@ -1,4 +1,6 @@
 const canvas = document.getElementById("game");
+// prevent browser gesture interference on touch devices
+canvas.style.touchAction = "none";
 const ctx = canvas.getContext("2d");
 let bullets = [];
 let enemyBullets = [];
@@ -1717,7 +1719,11 @@ function showMidgameAd() {
 
 
 function isMobile() {
-    return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    // consider user agent or presence of touch support
+    const ua = navigator.userAgent || "";
+    const mobileUa = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(ua);
+    const touchCapable = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    return mobileUa || touchCapable;
 }
 
 function drawMobileBtn(btn, text) {
@@ -1741,45 +1747,86 @@ function drawMobileBtn(btn, text) {
     );
 }
 
-// ===== TOUCH = CLICK FIX (MENU / SHOP / LEVELS) =====
-// Replace your existing touchstart/touchend listeners with these
-canvas.addEventListener("touchstart", function (e) {
-    e.preventDefault(); // Prevents "ghost clicks" and scrolling
-    ensureAudio();
+// ===== TOUCH & POINTER INPUT =====
+// Mobile devices emit touch events, desktop browsers may emit pointer events
+// We'll track all active touches/pointers and recompute button flags each time.
 
+function updateTouchFlags(touches) {
+    // reset then reapply based on all active points
+    touchLeft = touchRight = touchJump = touchShoot = false;
+    if (!touches) return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    for (let i = 0; i < e.touches.length; i++) {
-        const t = e.touches[i];
+    for (let i = 0; i < touches.length; i++) {
+        const t = touches[i];
         const x = (t.clientX - rect.left) * scaleX;
         const y = (t.clientY - rect.top) * scaleY;
-
-        // Use the same detection logic but handle it per-finger
         checkMobileButtons(x, y);
+    }
+}
 
-        // Also handle menu/UI clicks via touch
-        if (gameState !== "play") {
-            handleCanvasClick(t);
+function handleTouchStart(e) {
+    e.preventDefault(); // prevent scrolling/ghost clicks
+    ensureAudio();
+    updateTouchFlags(e.touches);
+
+    // if we're not playing, treat touches as regular clicks for menus
+    if (gameState !== "play") {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        for (let i = 0; i < e.touches.length; i++) {
+            const t = e.touches[i];
+            handleCanvasClick({
+                clientX: t.clientX,
+                clientY: t.clientY
+            });
         }
     }
-}, { passive: false });
+}
 
-canvas.addEventListener("touchend", function (e) {
-    // If no fingers are touching, reset all inputs
+function handleTouchMove(e) {
+    e.preventDefault();
+    updateTouchFlags(e.touches);
+}
+
+function handleTouchEnd(e) {
+    e.preventDefault();
     if (e.touches.length === 0) {
-        touchLeft = false;
-        touchRight = false;
-        touchJump = false;
-        touchShoot = false;
+        touchLeft = touchRight = touchJump = touchShoot = false;
     } else {
-        touchLeft = false;
-        touchRight = false;
-        touchJump = false;
-        touchShoot = false;
+        updateTouchFlags(e.touches);
     }
-}, { passive: false });
+}
+
+canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+canvas.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+// Pointer events unify mouse, touch, stylus. Use them for broader compatibility.
+function handlePointerEvent(e) {
+    e.preventDefault();
+    ensureAudio();
+    // treat touch and pen like mobile touch
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+        updateTouchFlags([e]);
+    }
+    // menu clicks
+    if (gameState !== "play" && (e.type === "pointerdown" || e.type === "pointerup")) {
+        handleCanvasClick(e);
+    }
+    if (e.type === "pointerup" || e.type === "pointercancel") {
+        touchLeft = touchRight = touchJump = touchShoot = false;
+    }
+}
+
+canvas.addEventListener("pointerdown", handlePointerEvent);
+canvas.addEventListener("pointermove", handlePointerEvent);
+canvas.addEventListener("pointerup", handlePointerEvent);
+canvas.addEventListener("pointercancel", handlePointerEvent);
+
 
 function loop() {
     update();
